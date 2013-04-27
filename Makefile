@@ -13,8 +13,8 @@ builddir = public/js
 # Modules (these are combined into the library)
 modules =	$(srcdir)/tracker.js \
 					$(srcdir)/activityStore.js \
-					$(srcdir)/slidebox/slidebox.js \
-					$(srcdir)/slidebox/x-tag-components.js
+					$(srcdir)/slidebox/x-tag-components.js \
+					$(srcdir)/slidebox/slidebox.js
 
 # File list
 files = $(modules) $(deps)

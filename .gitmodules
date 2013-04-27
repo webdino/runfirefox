@@ -1,0 +1,18 @@
+[submodule "tools/UglifyJS2"]
+	path = tools/UglifyJS2
+	url = git://github.com/mishoo/UglifyJS2.git
+[submodule "tools/node_modules/source-map"]
+	path = tools/node_modules/source-map
+	url = git://github.com/mozilla/source-map.git
+[submodule "tools/node_modules/amdefine"]
+	path = tools/node_modules/amdefine
+	url = git://github.com/jrburke/amdefine.git
+[submodule "tools/node_modules/optimist"]
+	path = tools/node_modules/optimist
+	url = git://github.com/substack/node-optimist.git
+[submodule "tools/node_modules/wordwrap"]
+	path = tools/node_modules/wordwrap
+	url = git://github.com/substack/node-wordwrap.git
+[submodule "tools/node_modules/async"]
+	path = tools/node_modules/async
+	url = git://github.com/caolan/async.git

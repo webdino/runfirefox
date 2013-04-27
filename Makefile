@@ -12,7 +12,9 @@ builddir = public/js
 
 # Modules (these are combined into the library)
 modules =	$(srcdir)/tracker.js \
-					$(srcdir)/activityStore.js
+					$(srcdir)/activityStore.js \
+					$(srcdir)/slidebox/slidebox.js \
+					$(srcdir)/slidebox/x-tag-components.js
 
 # File list
 files = $(modules) $(deps)
@@ -38,4 +40,3 @@ lib: $(runfirefox) $(runfirefox-dev)
 
 clean:
 	rm -f $(runfirefox) $(runfirefox-dev)
-

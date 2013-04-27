@@ -14,7 +14,8 @@ builddir = public/js
 modules =	$(srcdir)/tracker.js \
 					$(srcdir)/activityStore.js \
 					$(srcdir)/slidebox/slidebox.js \
-					$(srcdir)/slidebox/x-tag-components.js
+					$(srcdir)/slidebox/x-tag-components.js \
+                    $(srcdir)/setting.js
 
 # File list
 files = $(modules) $(deps)
@@ -32,7 +33,7 @@ $(runfirefox): $(files)
 
 # Debug version
 $(runfirefox-dev): $(files)
-	tools/UglifyJS2/bin/uglifyjs $^ -o $@
+	cat $^ > $@ 
 
 lib: $(runfirefox) $(runfirefox-dev)
 

@@ -18,6 +18,7 @@ modules =	$(srcdir)/tracker.js \
 					$(srcdir)/setting.js \
 					$(srcdir)/home.js \
 					$(srcdir)/audio.js \
+					$(srcdir)/mapView.js \
 					$(srcdir)/controllers.js
 
 # File list

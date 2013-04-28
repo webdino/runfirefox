@@ -9,26 +9,35 @@
     <link rel="stylesheet" type="text/css" href="css/slidebox.css"/>
     <link rel="stylesheet" type="text/css" href="css/runfirefox.css"/>
     <script type="text/javascript" src="js/runfirefox-dev.js" defer></script>
-    <style type="text/css">
-      #contents {
-        height: 300px;
-        width: 220px;
-      }
-    </style>
   </head>
   <body>
   <dl>
     <dd id="container">
-      <nav class="menus">
+      <nav id="menus">
         <button data-action-type="slideHome">home</button>
         <button data-action-type="slideActivity">activity</button>
         <button data-action-type="slideSetting">setting</button>
       </nav>
       <x-slidebox id="contents" orientation="x">
         <x-slides>
-          <x-slide>home</x-slide>
-          <x-slide>activity</x-slide>
-          <x-slide>setting</x-slide>
+
+<!-- home -->
+<x-slide>
+  <div id="homeContents">
+    <button data-action-type="run">run</button>
+  </div>
+</x-slide>
+
+<!-- activity -->
+<x-slide>
+activity
+</x-slide>
+
+<!-- setting -->
+<x-slide>
+setting
+</x-slide>
+
         </x-slides>
       </x-slidebox>
     </dd>

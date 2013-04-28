@@ -16,6 +16,8 @@ modules =	$(srcdir)/tracker.js \
 					$(srcdir)/slidebox/x-tag-components.js \
 					$(srcdir)/slidebox/slidebox.js \
 					$(srcdir)/setting.js \
+					$(srcdir)/home.js \
+					$(srcdir)/audio.js \
 					$(srcdir)/controllers.js
 
 # File list

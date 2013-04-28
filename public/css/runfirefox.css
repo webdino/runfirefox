@@ -1,0 +1,39 @@
+body {
+  font-family: Helvetica, monospace
+}
+
+#menus {
+  text-align: center;
+}
+
+#menus button {
+  color: green;
+  border: none;
+  background-color: black;
+}
+
+#menus button.selected {
+  border-bottom: 1px solid green;
+}
+
+#container {
+  background-color: black;
+  color: gray;
+  width: 220px;
+}
+
+#contents {
+  height: 300px;
+  width: 220px;
+}
+
+#homeContents {
+  padding-top: 130px;
+  text-align: center;
+}
+
+#homeContents button {
+  color: green;
+  border: none;
+  background-color: black;
+}

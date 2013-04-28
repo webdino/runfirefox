@@ -1,105 +1,138 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+function Tracker() {
+  // When start() was called as a DOMTimestamp
+  var startTime = null;
+
+  // Array of objects { timestamp, latitude, longitude, altitude, type }
+  //  timestamp - number of seconds since startTime as a double
+  //  latitude  - double
+  //  longitude - double
+  //  altitude  - double
+  //  type      - start, gps, pause, resume, end
+  var path = [];
+
+  // The geolocation watchPosition ID
+  var watchId = null;
+
+  // Flag to indicate that we are supposed to start but are still waiting for
+  // the initial position to arrive
+  var waitingToStart = false;
+
+  this.start = function(onstart, onprogress, onerror) {
+    // If we're already waiting to start, just keep waiting
+    if (waitingToStart)
+      return;
+
+    // If we're still running, then just keep running
+    if (watchId)
+      return;
+
+    // Start watching
+    waitingToStart = true;
+    watchId =
+      navigator.geolocation.watchPosition(
+        function(position) {
+          waitingToStart = false;
+          // First point
+          if (path.length === 0) {
+            startTime = position.timestamp;
+            addPoint(position, 'start');
+            if (onstart) {
+              onstart(path[path.length-1], this);
+            }
+          // Resuming
+          } else if (path[path.length-1].type == 'end') {
+            path[path.length-1].type = 'pause';
+            addPoint(position, 'resume');
+            if (onstart) {
+              onstart(path[path.length-1], this);
+            }
+          // Regular point
+          } else {
+            addPoint(position, 'gps');
+            if (onprogress) {
+              onprogress(path[path.length-1], this);
+            }
+          }
+        },
+        function(error) {
+          waitingToStart = false;
+          watchId = null;
+          if (onerror) {
+            onerror(error, this);
+          }
+        },
+        { enableHighAccuracy: true, maximumAge: 0 }
+      );
+  }
+
+  this.stop = function(oncomplete) {
+    // If we're still waiting to start, just keep waiting
+    if (waitingToStart) {
+      setTimeout(function() { this.stop(oncomplete); }.bind(this), 100);
+      return;
+    }
+
+    // Ensure we are actually running
+    if (watchId === null) {
+      if (oncomplete) {
+        oncomplete(this);
+      }
+      return;
+    }
+
+    // Cancel watch
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+
+    // Make sure the last point in the path is 'end'
+    if (path.length && path[path.length-1].type == 'gps') {
+      // Tweak last point
+      var last = path[path.length-1];
+      last.type = 'end';
+      last.timestamp = Math.max(last.timestamp, Date.now() - startTime);
+    } else if (path.length) {
+      // Duplicate last point and adjust parameters
+      var currentLast = path[path.length-1];
+      var newLast =
+        { timestamp: Math.max(currentLast.timestamp, Date.now() - startTime),
+          latitude: currentLast.longitude,
+          longitude: currentLast.longitude,
+          altitude: currentLast.altitude,
+          type: 'end'
+        };
+      path.push(newLast);
+    }
+
+    // Finish
+    if (oncomplete) {
+      oncomplete(this);
+    }
+  }
+
+  this.__defineGetter__("startTime", function(){
+    return startTime;
+  });
+
+  this.__defineGetter__("path", function(){
+    return path;
+  });
+
+  function addPoint(position, type) {
+    path.push({ timestamp: Math.max(position.timestamp - startTime, 0),
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                altitude: position.coords.altitude,
+                type: type });
+  }
+};
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
-
-(function(){
-
-  var transform = xtag.prefix.js + 'Transform';
-  function getState(el){
-    var selected = xtag.query(el, 'x-slides > x-slide[selected]')[0] || 0;
-    return [selected ? xtag.query(el, 'x-slides > x-slide').indexOf(selected) : selected, el.firstElementChild.children.length - 1];
-  }
-
-  function slide(el, index){
-    var slides = xtag.toArray(el.firstElementChild.children);
-    slides.forEach(function(slide){ slide.removeAttribute('selected'); });
-    slides[index || 0].setAttribute('selected', null);
-    el.firstElementChild.style[transform] = 'translate'+ (el.getAttribute('orientation') || 'x') + '(' + (index || 0) * (-100 / slides.length) + '%)';
-  }
-
-  function init(toSelected){    
-    var slides = this.firstElementChild;
-    if (!slides || !slides.children.length || slides.tagName.toLowerCase() != 'x-slides') return;
-    
-    var children = xtag.toArray(slides.children),
-      size = 100 / (children.length || 1),
-      orient = this.getAttribute('orientation') || 'x',
-      style = orient == 'x' ? ['width', 'height'] : ['height', 'width'];
-    
-    slides.style[style[1]] =  '100%';
-    slides.style[style[0]] = children.length * 100 + '%';
-    slides.style[transform] = 'translate' + orient + '(0%)';
-    children.forEach(function(slide){       
-      slide.style[style[0]] = size + '%';
-      slide.style[style[1]] = '100%';
-    });    
-    
-    if (toSelected) {
-      var selected = slides.querySelector('[selected]');
-      if (selected) slide(this, children.indexOf(selected) || 0);
-    }
-  }
-
-  xtag.register('x-slidebox', {
-    events:{
-      'transitionend': function(e){
-        if (e.target == this) xtag.fireEvent(this, 'slideend');
-      },
-      'elementupgrade': function(e){
-        if (e.target == this){
-          init();
-        }
-      }
-    },
-    accessors:{
-      orientation:{
-        get: function(){
-          return this.getAttribute('orientation');
-        },
-        set: function(value){
-          this.setAttribute('orientation', value.toLowerCase());
-          init.call(this, true);
-        }
-      }
-    },
-    methods: {
-      slideTo: function(index){
-        slide(this, index);
-      },
-      slideNext: function(){
-        var shift = getState(this);
-          shift[0]++;
-        slide(this, shift[0] > shift[1] ? 0 : shift[0]);
-      },
-      slidePrevious: function(){
-        var shift = getState(this);
-          shift[0]--;
-        slide(this, shift[0] < 0 ? shift[1] : shift[0]);
-      }
-    }
-  });
-  
-  xtag.register('x-slide', {
-    lifecycle:{
-      inserted: function(){
-        var ancestor = this.parentNode.parentNode;
-        if (ancestor.tagName.toLowerCase() == 'x-slidebox') init.call(ancestor, true);
-      }
-    },
-    events:{
-      'elementupgrade': function(e){
-        if (e.target == this){
-          var ancestor = this.parentNode.parentNode;
-          if (ancestor.tagName.toLowerCase() == 'x-slidebox') init.call(ancestor, true);
-        }
-      }
-    }
-  });
-  
-})();if (!(document.register || {}).__polyfill__){
+if (!(document.register || {}).__polyfill__){
 
   (function(){
     
@@ -755,12 +788,107 @@
   else win.xtag = xtag;
 
 })();
-/* This Source Code Form is subject to the terms of the Mozilla Public
+
+(function(){
+
+  var transform = xtag.prefix.js + 'Transform';
+  function getState(el){
+    var selected = xtag.query(el, 'x-slides > x-slide[selected]')[0] || 0;
+    return [selected ? xtag.query(el, 'x-slides > x-slide').indexOf(selected) : selected, el.firstElementChild.children.length - 1];
+  }
+
+  function slide(el, index){
+    var slides = xtag.toArray(el.firstElementChild.children);
+    slides.forEach(function(slide){ slide.removeAttribute('selected'); });
+    slides[index || 0].setAttribute('selected', null);
+    el.firstElementChild.style[transform] = 'translate'+ (el.getAttribute('orientation') || 'x') + '(' + (index || 0) * (-100 / slides.length) + '%)';
+  }
+
+  function init(toSelected){    
+    var slides = this.firstElementChild;
+    if (!slides || !slides.children.length || slides.tagName.toLowerCase() != 'x-slides') return;
+    
+    var children = xtag.toArray(slides.children),
+      size = 100 / (children.length || 1),
+      orient = this.getAttribute('orientation') || 'x',
+      style = orient == 'x' ? ['width', 'height'] : ['height', 'width'];
+    
+    slides.style[style[1]] =  '100%';
+    slides.style[style[0]] = children.length * 100 + '%';
+    slides.style[transform] = 'translate' + orient + '(0%)';
+    children.forEach(function(slide){       
+      slide.style[style[0]] = size + '%';
+      slide.style[style[1]] = '100%';
+    });    
+    
+    if (toSelected) {
+      var selected = slides.querySelector('[selected]');
+      if (selected) slide(this, children.indexOf(selected) || 0);
+    }
+  }
+
+  xtag.register('x-slidebox', {
+    events:{
+      'transitionend': function(e){
+        if (e.target == this) xtag.fireEvent(this, 'slideend');
+      },
+      'elementupgrade': function(e){
+        if (e.target == this){
+          init();
+        }
+      }
+    },
+    accessors:{
+      orientation:{
+        get: function(){
+          return this.getAttribute('orientation');
+        },
+        set: function(value){
+          this.setAttribute('orientation', value.toLowerCase());
+          init.call(this, true);
+        }
+      }
+    },
+    methods: {
+      slideTo: function(index){
+        slide(this, index);
+      },
+      slideNext: function(){
+        var shift = getState(this);
+          shift[0]++;
+        slide(this, shift[0] > shift[1] ? 0 : shift[0]);
+      },
+      slidePrevious: function(){
+        var shift = getState(this);
+          shift[0]--;
+        slide(this, shift[0] < 0 ? shift[1] : shift[0]);
+      }
+    }
+  });
+  
+  xtag.register('x-slide', {
+    lifecycle:{
+      inserted: function(){
+        var ancestor = this.parentNode.parentNode;
+        if (ancestor.tagName.toLowerCase() == 'x-slidebox') init.call(ancestor, true);
+      }
+    },
+    events:{
+      'elementupgrade': function(e){
+        if (e.target == this){
+          var ancestor = this.parentNode.parentNode;
+          if (ancestor.tagName.toLowerCase() == 'x-slidebox') init.call(ancestor, true);
+        }
+      }
+    }
+  });
+  
+})();/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-var Runkeeper = Runkeeper || {};
-Runkeeper.Setting = (function(){
+var RunFirefox = window.RunFirefox || {};
+RunFirefox.Setting = (function(){
 
     var Setting = function(account, password){
 	this.accout = account;
@@ -875,41 +1003,437 @@ Runkeeper.Setting = (function(){
 	    currentHeartrate: false,
 	    heartrateZone: false,
 	    setTime: function(flag){
-		set(self, "time", flag);
+		set(this, "time", flag);
 	    },
 	    setDistance: function(flag){
-		set(self, "distance", flag);
+		set(this, "distance", flag);
 	    },
 	    setAveragePace: function(flag){
-		set(self, "averagePace", flag);
+		set(this, "averagePace", flag);
 	    },
 	    setAverageSpeed: function(flag){
-		set(self, "averageSpeed", flag);
+		set(this, "averageSpeed", flag);
 	    },
 	    setCurrentPace: function(flag){
-		set(self, "currentPace", flag);
+		set(this, "currentPace", flag);
 	    },
 	    setSplitPace: function(flag){
-		set(self, "splitPace", flag);
+		set(this, "splitPace", flag);
 	    },
 	    setSplitSpeed: function(flag){
-		set(self, "splitSpeed", flag);
+		set(this, "splitSpeed", flag);
 	    },
 	    setAverageHeartrate: function(flag){
-		set(self, "averageHeartrate", flag);
+		set(this, "averageHeartrate", flag);
 	    },
 	    setCurrentHeartrate: function(flag){
-		set(self, "currentHeartrate", flag);
+		set(this, "currentHeartrate", flag);
 	    },
 	    setHeartrateZone: function(flag){
-		set(self, "heartrateZone", flag);
+		set(this, "heartrateZone", flag);
 	    }
 	};
     })();
 
-    
-
-    return {
+    var AudioTiming = function(){
     };
 
+    var AudioTimingValue = function(){
+	this.time = null;
+	this.distance = null;
+    };
+
+    AudioTimingValue.prototype = (function(){
+	var defaultTimeInterval = 5;
+	var defaultDistanceInterval = 1.00;
+
+	var set = function(tbl, attr, val, list){
+	    if(tbl && tbl[attr] && list.indexOf(val) > 0){
+		tbl[attr] = val;
+	    }
+	};
+
+	return {
+	    timeInterval:  [1, 2, 3, 4, 5, 10, 15, 20, 25, 30],
+	    timeIntervalUnit: "分",
+	    distanceInterval: [0.25, 0.50, 0.75, 1.00, 1.25, 1.50, 1.75, 2.00, 3.00, 4.00, 5.00, 6.00, 7.00, 8.00, 9.00, 10.00],
+	    distanceIntervalUnit: "km",
+	    enableTime: function(){
+		this.time = defaultTimeInterval;
+	    },
+	    enableDistance: function(){
+		this.distane = defaultDistanceInterval;
+	    },
+	    setOndemandOnly: function(){
+		this.time = null;
+		this.distance = null;
+	    },
+	    setTime: function(val){
+		set(this, "time", val, this.timeInterval);
+	    },
+	    setDistance: function(val){
+		set(this, "distance", val, this.timeInterval);
+	    }
+	};
+	
+    })();
+
+    
+    
+    return {
+	Setting: Setting,
+	new: function(){
+	    return new Setting();
+	}
+    };
+
+})();/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+var HomeControls = function() {
+  var self = this;
+  var listener = function(e) {
+    self.selectMenu(e);
+  };
+  document.getElementById("homeContents").addEventListener('click', listener);
+}
+
+HomeControls.prototype.start = function(audioControls) {
+  this.audioControls = audioControls;
+}
+
+HomeControls.prototype.stop = function() {
+}
+
+HomeControls.prototype.run = function() {
+  this.audioControls.run();
+//  this.audioControls.passKilo(512);
+}
+
+HomeControls.prototype.selectMenu = function(e) {
+  var action = e.target,
+    actionType = action.getAttribute('data-action-type');
+  if (actionType) {
+    switch(actionType) {
+      case 'run':
+        this.run();
+        break;
+    }
+  }
+}
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+var AudioControls = function(dir) {
+  this.loadAll(dir);
+}
+
+AudioControls.prototype.loadAll = function(dir) {
+  this.sound_table = {};
+  this.sound_table["1"] = new Audio(dir+"/1.wav");
+  this.sound_table["2"] = new Audio(dir+"/2.wav");
+  this.sound_table["3"] = new Audio(dir+"/3.wav");
+  this.sound_table["4"] = new Audio(dir+"/4.wav");
+  this.sound_table["5"] = new Audio(dir+"/5.wav");
+  this.sound_table["6"] = new Audio(dir+"/6.wav");
+  this.sound_table["7"] = new Audio(dir+"/7.wav");
+  this.sound_table["8"] = new Audio(dir+"/8.wav");
+  this.sound_table["9"] = new Audio(dir+"/9.wav");
+  this.sound_table["10"] = new Audio(dir+"/10.wav");
+  this.sound_table["100"] = new Audio(dir+"/100.wav");
+  this.sound_table["kilo"] = new Audio(dir+"/kilo.wav");
+  this.sound_table["hashire"] = new Audio(dir+"/hashire.wav");
+}
+
+AudioControls.prototype.run = function() {
+  this.playAudio("hashire");
+}
+
+AudioControls.prototype.passKilo = function(number) {
+  var sources = [];
+  this.pushNumber(sources, number);
+  this.pushAudio(sources, "kilo");
+  this.playPluralAudios(sources, 0);
+}
+
+AudioControls.prototype.pushAudio = function(sources, name) {
+  sources.push(this.sound_table[name]);
+}
+
+AudioControls.prototype.pushNumber = function(sources, number) {
+  var handled = Math.floor(number/100);
+  number -= 100 * handled;
+  var ten = Math.floor(number/10);
+  number -= 10 * ten;
+  if (handled >= 2) {
+    this.pushANumber(sources, handled);
+    this.pushAudio(sources, "100");
+  } else if (handled == 1) {
+    this.pushAudio(sources, "100");
+  }
+  if (ten >= 2) {
+    this.pushANumber(sources, ten);
+    this.pushAudio(sources, "10");
+  } else if (ten == 1) {
+    this.pushAudio(sources, "10");
+  }
+  this.pushANumber(sources, number);
+}
+
+AudioControls.prototype.pushANumber = function(sources, number) {
+  switch (number) {
+    case 1 : {
+      this.pushAudio(sources, "1");
+      break;
+    }
+    case 2 : {
+      this.pushAudio(sources, "2");
+      break;
+    }
+    case 3 : {
+      this.pushAudio(sources, "3");
+      break;
+    }
+    case 4 : {
+      this.pushAudio(sources, "4");
+      break;
+    }
+    case 5 : {
+      this.pushAudio(sources, "5");
+      break;
+    }
+    case 6 : {
+      this.pushAudio(sources, "6");
+      break;
+    }
+    case 7 : {
+      this.pushAudio(sources, "7");
+      break;
+    }
+    case 8 : {
+      this.pushAudio(sources, "8");
+      break;
+    }
+    case 9 : {
+      this.pushAudio(sources, "9");
+      break;
+    }
+  }
+}
+
+AudioControls.prototype.playPluralAudios = function(sources, index) {
+  var self = this;
+  var audio = sources[index];
+  audio.play();
+  
+  var listener = function(e) {
+    audio.removeEventListener("ended", listener);
+    index += 1;
+    if (sources.length != index) {
+      self.playPluralAudios(sources, index);
+    }
+  }
+  
+  audio.addEventListener("ended", listener);
+}
+
+AudioControls.prototype.playAudio = function(source) {
+  var audio = this.sound_table[source];
+  audio.play();
+}/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+var RunFirefox = RunFirefox || {};
+
+(function(){
+    var MAP_API = "http://maps.googleapis.com/maps/api/js?libraries=geometry&sensor=false";
+    if(!RunFirefox.MapView){
+	var script = document.createElement("script");
+	script.type = "text/javascript";
+	script.src = MAP_API;
+	script.onload = function(){
+	    window.RunFirefox.MapView = window.RunFirefox.__initMapView(google.maps);
+	    delete(window.RunFirefox.__initMapView);
+	};
+	var body = document.getElementsByTagName("body");
+	if(body && body.length > 0){
+	    body[0].appendChild(script);
+	}
+    }
 })();
+
+RunFirefox.__initMapView = function(maps){
+
+    var MapFactory = function(){
+	this.loadMapAPI();
+    };
+
+    MapFactory.prototype = (function(){
+	var getInitialCenter = function(tracker){
+	    var p = tracker.path[0];
+	    return new maps.LatLng(p.latitude, p.longitude);
+	};
+
+	var getInitialZoom = function(tracker){
+	    return 15; // XXX
+	};
+	
+	return {
+	    createMap: function(tracker, elm_or_id){
+		var elm = elm_or_id;
+		if(!(elm_or_id instanceof Element)){
+		    elm = document.getElementById(elm_or_id.toString());
+		}
+		if(elm && this.tracker){
+		    var map = new maps.Map(elm, {
+			center: getInitialCenter(tracker),
+			zoom: getInitialZoom(tracker),
+			mapTypeId: "OSM",
+			mapTypeControl: false,
+			streetViewControl: false
+		    });
+		    map.mapTypes.set("OSM", new maps.ImageMapType({
+			getTileUrl: function(coord, zoom) {
+			    return "http://tile.openstreetmap.org/" +
+				zoom + "/" +
+				coord.x + "/" +
+				coord.y + ".png";
+			},
+			tileSize: new maps.Size(256, 256),
+			name: "OpenStreetMap",
+			maxZoom: 18
+		    }));
+		    return map;
+		}
+		return null;
+	    }
+	};
+
+    })();
+
+    var MapView = function(tracker, elm_or_id){
+	this.tracker = tracker;
+	
+	if(this.tracker){
+	    var factory = new MapFactory();
+	    this.map = factory.createMap(this.tracker, elm_or_id);
+	}
+    };
+
+    MapView.prototype = (function(){
+	var MILESTONE_UNIT = 1000;
+	var toLatLng = function(list){
+	    var ret = [];
+	    for(var i = 0; i < list.length; i++){
+		var p = list[i];
+		if(p.latitude && p.longitude){
+		    ret.push(new maps.LatLng(p.latitude, p.longitude));
+		}
+	    }
+	    return ret;
+	};
+
+	var extractMilestonesFrom = function(list){
+	    var ret = [];
+	    if(list && list.length && list.length > 0){
+		var total = 0;
+		for(var i = 1; i < list.length; i++){
+		    total += maps.geometry.spherical.computeDistanceBetween(list[i-1], list[i]);
+		    if(total > (ret.length + 1) * MILESTONE_UNIT){
+			ret.push(new maps.LatLng(list[i].p));
+		    }
+		}
+	    }
+	    return ret;
+	};
+	
+	return {
+	    plotPath: function(){
+		if(this.tracker && this.map){
+		    var path = toLatLng(this.tracker.path);
+		    var args = {
+			map: this.map,
+			path: path
+		    };
+		    return maps.Polyline(args);
+		}
+		return null;
+	    },
+	    plotMilestones: function(){
+		var milestones = extractMilestonesFrom(this.tracker.path);
+		for(var i = 0; i < milestones.length; i++){
+		    milestones[i] = new maps.Marker({
+			position: milestones[i],
+			map: this.map,
+			title: i + "km"
+		    });
+		}
+		return milestones;
+	    }
+	};
+    })();
+
+    return {
+	Map: MapView,
+	new: function(tracker, elm_or_id){
+	    return new MapView(tracker, elm_or_id);
+	}
+    };
+};/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+ 
+var RunFirefox = RunFirefox || {};
+
+RunFirefox.init = function() {
+  RunFirefox.audioControls = new AudioControls("audio");
+  RunFirefox.homeControls = new HomeControls();
+  var menus = document.getElementById("menus");
+  menus.addEventListener('click', RunFirefox.selectMenu);
+  for (var i = 0, n = menus.children.length; i < n; i++) {
+    var menu = menus.children[i];
+    var actionType = menu.getAttribute('data-action-type');
+    if (actionType == 'slideHome') {
+      RunFirefox.transferControls(RunFirefox.homeControls, menu);
+      break;
+    }
+  }
+}
+
+RunFirefox.transferControls = function(controller, element) {
+  if (RunFirefox.currentControls) {
+    RunFirefox.currentControls.stop();
+    RunFirefox.currentTarget.classList.remove("selected");
+  }
+  RunFirefox.currentTarget = element;
+  RunFirefox.currentControls = controller;
+  RunFirefox.currentTarget.classList.add("selected");
+  RunFirefox.currentControls.start(RunFirefox.audioControls);
+}
+
+RunFirefox.selectMenu = function(e) {
+  var action = e.target,
+    actionType = action.getAttribute('data-action-type');
+  if (actionType) {
+    var mainContainer = document.getElementById('contents');
+    switch(actionType) {
+      case 'slideHome':
+        RunFirefox.transferControls(RunFirefox.homeControls, action);
+        mainContainer.slideTo(0);
+        break;
+      case 'slideActivity':
+        RunFirefox.transferControls({"start":function(){}, "stop":function(){}}, action);
+        mainContainer.slideTo(1);
+        break;
+      case 'slideSetting':
+        RunFirefox.transferControls({"start":function(){}, "stop":function(){}}, action);
+        mainContainer.slideTo(2);
+        break;
+    }
+  }
+}
+
+window.addEventListener("load", function(e) {
+    RunFirefox.init();
+}, false);

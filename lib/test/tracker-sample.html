@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<!-- This Source Code Form is subject to the terms of the Mozilla Public
+   - License, v. 2.0. If a copy of the MPL was not distributed with this file,
+   - You can obtain one at http://mozilla.org/MPL/2.0/.  -->
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Tracker sample</title>
+    <script type="text/javascript" src="../tracker.js"></script>
+    <script>
+      function runTracker() {
+        var t = new Tracker();
+        t.start(addPoint, addPoint, showError);
+      }
+      function addPoint(point) {
+        var li = document.createElement("LI");
+        li.textContent = point.latitude + ", " + point.longitude;
+        document.getElementById("points").appendChild(li);
+      }
+      function showError(error) {
+        var li = document.createElement("LI");
+        li.textContent = error.message;
+        document.getElementById("points").appendChild(li);
+      }
+    </script>
+  </head>
+  <body onload="runTracker()">
+    <ul id="points">
+    </ul>
+  </body>
+</html>

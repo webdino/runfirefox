@@ -8,51 +8,39 @@
     <title data-l10n-id="title">Run Firefox!</title>
     <link rel="stylesheet" type="text/css" href="css/slidebox.css"/>
     <link rel="stylesheet" type="text/css" href="css/runfirefox.css"/>
-    <script type="text/javascript" src="js/runfirefox.js" defer></script>
-    <style type="text/css">
-      #contents {
-        height: 300px;
-        width: 220px;
-      }
-    </style>
+    <script type="text/javascript" src="js/runfirefox-dev.js" defer></script>
   </head>
   <body>
   <dl>
     <dd id="container">
-      <nav class="menus">
+      <nav id="menus">
         <button data-action-type="slideHome">home</button>
         <button data-action-type="slideActivity">activity</button>
         <button data-action-type="slideSetting">setting</button>
       </nav>
       <x-slidebox id="contents" orientation="x">
         <x-slides>
-          <x-slide>home</x-slide>
-          <x-slide>activity</x-slide>
-          <x-slide>setting</x-slide>
+
+<!-- home -->
+<x-slide>
+  <div id="homeContents">
+    <button data-action-type="run">run</button>
+  </div>
+</x-slide>
+
+<!-- activity -->
+<x-slide>
+activity
+</x-slide>
+
+<!-- setting -->
+<x-slide>
+setting
+</x-slide>
+
         </x-slides>
       </x-slidebox>
     </dd>
   </dl>
   </body>
-<script type="text/javascript">
-  document.addEventListener('click', function(e){
-    var action = e.target,
-      parent = action.parentNode,
-      actionType = action.getAttribute('data-action-type');
-    if (actionType) {
-      var mainContainer = document.getElementById('contents');
-      switch(actionType) {
-        case 'slideHome':
-          mainContainer.slideTo(0);
-          break;
-        case 'slideActivity':
-          mainContainer.slideTo(1);
-          break;
-        case 'slideSetting':
-          mainContainer.slideTo(2);
-          break;
-      }
-    }
-  });
-</script>
 </html>

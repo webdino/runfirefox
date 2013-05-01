@@ -16,3 +16,6 @@
 [submodule "tools/node_modules/async"]
 	path = tools/node_modules/async
 	url = git://github.com/caolan/async.git
+[submodule "lib/rsvp.js"]
+	path = lib/rsvp.js
+	url = git://github.com/tildeio/rsvp.js.git

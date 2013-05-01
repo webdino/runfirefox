@@ -11,7 +11,8 @@ srcdir = lib
 builddir = public/js
 
 # Modules (these are combined into the library)
-modules =	$(srcdir)/tracker.js \
+modules =	$(srcdir)/rsvp.js/browser/rsvp.js \
+          $(srcdir)/tracker.js \
 					$(srcdir)/activityStore.js \
 					$(srcdir)/slidebox/x-tag-components.js \
 					$(srcdir)/slidebox/slidebox.js \

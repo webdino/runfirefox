@@ -6,15 +6,18 @@
   <head>
     <meta charset="utf-8">
     <title>Tracker sample</title>
+    <script type="text/javascript" src="../rsvp.js/browser/rsvp.js"></script>
     <script type="text/javascript" src="../tracker.js"></script>
     <script>
       function runTracker() {
         var t = new Tracker();
-        t.start(addPoint, addPoint, showError);
+        t.start().then(null, showError);
+        t.on("progress", addPoint);
       }
       function addPoint(point) {
         var li = document.createElement("LI");
-        li.textContent = point.latitude + ", " + point.longitude;
+        li.textContent =
+          [point.latitude, point.longitude, point.altitude].join(", ");
         document.getElementById("points").appendChild(li);
       }
       function showError(error) {

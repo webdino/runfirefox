@@ -17,17 +17,21 @@
       function addPoint(point) {
         var li = document.createElement("LI");
         li.textContent =
-          [point.latitude, point.longitude, point.altitude].join(", ");
+          [point.position.latitude, point.position.longitude,
+           point.position.altitude, point.distance].join(", ");
         document.getElementById("points").appendChild(li);
+        document.getElementById("distance").textContent =
+          "Distance: " + point.distance;
       }
       function showError(error) {
         var li = document.createElement("LI");
-        li.textContent = error.message;
+        li.textContent = error.error.message;
         document.getElementById("points").appendChild(li);
       }
     </script>
   </head>
   <body onload="runTracker()">
+    <p id="distance"></p>
     <ul id="points">
     </ul>
   </body>

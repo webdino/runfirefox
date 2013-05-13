@@ -592,7 +592,7 @@ window.RSVP = requireModule('rsvp');
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-function Tracker(geolocation) {
+function Tracker(geolocation, timeout) {
   // The geolocation service to use
   var geolocation = geolocation ? geolocation : navigator.geolocation;
 
@@ -607,6 +607,9 @@ function Tracker(geolocation) {
   //  type      - start, gps, pause, resume, end
   var path = [];
 
+  // The cumulative distance travelled
+  var distance = 0;
+
   // The geolocation watchPosition ID
   var watchId = null;
 
@@ -614,67 +617,84 @@ function Tracker(geolocation) {
   // the initial position to arrive
   var waitingToStart = false;
 
-  this.start = function(onstart, onprogress, onerror) {
-    // If we're already waiting to start, just keep waiting
-    if (waitingToStart)
-      return;
+  // The timeout value to pass when calling watchPosition
+  this.timeout = timeout || null;
 
-    // If we're still running, then just keep running
-    if (watchId)
-      return;
+  // Start/resume tracking the position
+  //
+  // The returned promise will resolve *after* the first position has been sent
+  // to the registered "progress" callback (if any).
+  //
+  // (This is just an artefact of the way rsvp.js works and so it may change.)
+  this.start = function() {
+    var tracker = this;
+    return new RSVP.Promise(function(resolve, reject) {
+      // If we're already waiting to start cancel previous request and
+      // try again
+      if (waitingToStart) {
+        geolocation.clearWatch(watchId);
+        watchId = null;
+        waitingToStart = false;
+      }
 
-    // Start watching
-    waitingToStart = true;
-    watchId =
-      geolocation.watchPosition(
-        function(position) {
-          // First point
-          if (path.length === 0) {
-            startTime = position.timestamp;
-            addPoint(position, 'start');
-          // Resuming
-          } else if (path[path.length-1].type == 'end') {
-            path[path.length-1].type = 'pause';
-            addPoint(position, 'resume');
-          // Regular point
-          } else {
-            addPoint(position, 'gps');
-          }
-          // Do start callback if we've just started/resumed
-          if (waitingToStart) {
-            waitingToStart = false;
-            if (onstart) {
-              onstart(this);
+      // If we're already running, then just keep running
+      if (watchId) {
+        resolve(tracker);
+        return;
+      }
+
+      // Set watch options
+      var positionOptions = { enableHighAccuracy: true, maximumAge: 0 };
+      if (tracker.timeout) {
+        positionOptions.timeout = tracker.timeout;
+      }
+
+      // Start watching
+      waitingToStart = true;
+      watchId =
+        geolocation.watchPosition(
+          function(position) {
+            // First point
+            if (path.length === 0) {
+              startTime = position.timestamp;
+              addPoint(position, 'start');
+            // Resuming
+            } else if (path[path.length-1].type == 'end') {
+              path[path.length-1].type = 'pause';
+              addPoint(position, 'resume');
+            // Regular point
+            } else {
+              addPoint(position, 'gps');
             }
-          }
-          // Notify observer if new point in path
-          if (onprogress) {
-            onprogress(path[path.length-1], this);
-          }
-        },
-        function(error) {
-          waitingToStart = false;
-          watchId = null;
-          if (onerror) {
-            onerror(error, this);
-          }
-        },
-        { enableHighAccuracy: true, maximumAge: 0 }
-      );
+            // Do start callback if we've just started/resumed
+            if (waitingToStart) {
+              waitingToStart = false;
+              resolve(tracker);
+            }
+            // Notify observer of new point in path
+            tracker.trigger("progress",
+              { position: path[path.length-1], distance: distance });
+          },
+          function(error) {
+            waitingToStart = false;
+            watchId = null;
+            reject({ tracker: tracker, error: error });
+          },
+          positionOptions
+        );
+    });
   }
 
-  this.stop = function(oncomplete) {
-    // If we're still waiting to start, just keep waiting
+  this.stop = function() {
+    // If we're still waiting to start cancel the request
     if (waitingToStart) {
-      setTimeout(function() { this.stop(oncomplete); }.bind(this), 100);
-      return;
+      geolocation.clearWatch(watchId);
+      watchId = null;
+      waitingToStart = false;
     }
 
-    // Ensure we are actually running
+    // If we are not running, just return
     if (watchId === null) {
-      if (oncomplete) {
-        oncomplete(this);
-      }
       return;
     }
 
@@ -692,18 +712,14 @@ function Tracker(geolocation) {
       // Duplicate last point and adjust parameters
       var currentLast = path[path.length-1];
       var newLast =
-        { timestamp: Math.max(currentLast.timestamp, Date.now() - startTime),
-          latitude: currentLast.longitude,
+        { timestamp: currentLast.timestamp,
+          latitude: currentLast.latitude,
           longitude: currentLast.longitude,
           altitude: currentLast.altitude,
           type: 'end'
         };
       path.push(newLast);
-    }
-
-    // Finish
-    if (oncomplete) {
-      oncomplete(this);
+      this.trigger("progress", { position: newLast, distance: distance });
     }
   }
 
@@ -715,12 +731,57 @@ function Tracker(geolocation) {
     return path;
   });
 
+  this.__defineGetter__("distance", function(){
+    return distance;
+  });
+
+  // Event target support
+  RSVP.EventTarget.mixin(this);
+
   function addPoint(position, type) {
+    // Add to path
     path.push({ timestamp: Math.max(position.timestamp - startTime, 0),
                 latitude: position.coords.latitude,
                 longitude: position.coords.longitude,
                 altitude: position.coords.altitude,
                 type: type });
+
+    // Update distance
+    if (path.length > 1) {
+      distance +=
+        distanceBetweenPoints(path[path.length-1], path[path.length-2]);
+    }
+  }
+
+  // Returns the distance between two points in metres
+  function distanceBetweenPoints(pointA, pointB) {
+    // Convert latitude and longitude to radians
+    var toRadians = function(value) { return value * Math.PI / 180; }
+    var getRadianCoords = function(point) {
+      return { latitude: toRadians(point.latitude),
+               longitude: toRadians(point.longitude) };
+    }
+    var a = getRadianCoords(pointA);
+    var b = getRadianCoords(pointB);
+
+    // Calculate flat distance using Haversine formulae
+    var R = 6371000; // m
+    var deltaLat  = b.latitude  - a.latitude;
+    var deltaLong = b.longitude - a.longitude;
+    var a = Math.pow(Math.sin(deltaLat / 2), 2) +
+            Math.cos(a.latitude) * Math.cos(b.latitude) *
+            Math.pow(Math.sin(deltaLong / 2), 2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    var flatDistance = R * c;
+
+    // Check if there is altitude to factor in
+    if (pointA.altitude === null || pointB.altitude === null ||
+        pointA.altitude == pointB.altitude)
+      return flatDistance;
+
+    // Factor in altitude
+    var verticalDistance = pointB.altitude - pointA.altitude;
+    return Math.sqrt(Math.pow(flatDistance, 2) + Math.pow(verticalDistance, 2));
   }
 };
 /* This Source Code Form is subject to the terms of the Mozilla Public
@@ -1686,7 +1747,7 @@ var HomeControls = function() {
   var listener = function(e) {
     self.selectMenu(e);
   };
-  document.getElementById("homeContents").addEventListener('click', listener);
+  document.getElementById("home").addEventListener('click', listener);
 }
 
 HomeControls.prototype.start = function(audioControls) {
@@ -1980,10 +2041,10 @@ var RunFirefox = RunFirefox || {};
 RunFirefox.init = function() {
   RunFirefox.audioControls = new AudioControls("audio");
   RunFirefox.homeControls = new HomeControls();
-  var menus = document.getElementById("menus");
-  menus.addEventListener('click', RunFirefox.selectMenu);
-  for (var i = 0, n = menus.children.length; i < n; i++) {
-    var menu = menus.children[i];
+  var menu = document.getElementById("menu");
+  menu.addEventListener('click', RunFirefox.selectMenu);
+  for (var i = 0, n = menu.children.length; i < n; i++) {
+    var menu = menu.children[i];
     var actionType = menu.getAttribute('data-action-type');
     if (actionType == 'slideHome') {
       RunFirefox.transferControls(RunFirefox.homeControls, menu);

@@ -11,20 +11,23 @@
     <script type="text/javascript" src="js/runfirefox-dev.js" defer></script>
   </head>
   <body>
-  <dl>
-    <dd id="container">
-      <nav id="menus">
-        <button data-action-type="slideHome">home</button>
-        <button data-action-type="slideActivity">activity</button>
-        <button data-action-type="slideSetting">setting</button>
-      </nav>
-      <x-slidebox id="contents" orientation="x">
-        <x-slides>
+    <nav id="menu" aria-role="navigation">
+      <button data-action-type="slideHome">home</button>
+      <button data-action-type="slideActivity">activity</button>
+      <button data-action-type="slideSetting">setting</button>
+    </nav>
+    <x-slidebox id="contents" orientation="x">
+      <x-slides>
 
 <!-- home -->
-<x-slide>
-  <div id="homeContents">
-    <button data-action-type="run">run</button>
+<x-slide id="home">
+  <div id="startContents">
+    <button data-action-type="run" class="start">スタート</button>
+  </div>
+  <div id="progressContents" aria-hidden="true">
+    <div id="currentDistance">0.0 km</div>
+    <button data-action-type="stop" class="stop">ストップ</button>
+    <button data-action-type="pause" class="pause">一時停止</button>
   </div>
 </x-slide>
 
@@ -38,9 +41,7 @@ activity
 setting
 </x-slide>
 
-        </x-slides>
-      </x-slidebox>
-    </dd>
-  </dl>
+      </x-slides>
+    </x-slidebox>
   </body>
 </html>

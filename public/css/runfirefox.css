@@ -1,39 +1,86 @@
-body {
-  font-family: Helvetica, monospace
+html, body {
+  font-family: Helvetica, monospace;
+  margin: 0;
+  padding: 0;
+  background: #555;
+}
+body * {
+  font-size: 25px;
+}
+*[aria-hidden=true] {
+  display: none !important;
 }
 
-#menus {
+/*
+ * Navigation menu
+ */
+#menu {
+  text-align: center;
+  background: #333;
+  padding-top: 0.2em;
+}
+#menu button {
+  color: #AAA;
+  border: none;
+  background: none;
+  font-size: 25px;
+  border-right: 0px solid #555;
+  padding: 0 0.8em;
+}
+#menu button.selected {
+  color: orange;
+  border-bottom: 3px solid orange;
+}
+
+/*
+ * Common form formatting
+ */
+#contents button {
+  background: orange;
+  border: 2px solid #840;
+  color: white;
+  padding: 0.25em 0.8em;
+  border-radius: 5px;
+  box-shadow: 1px 1px 1px black;
+  margin-bottom: 2px; /* So shadow doesn't get cut off */
+}
+x-slide {
+  color: #EEE;
+}
+
+/*
+ * Home panel
+ */
+#home {
+  padding-top: 2em;
   text-align: center;
 }
 
-#menus button {
-  color: green;
-  border: none;
-  background-color: black;
+/*
+ * Ready to start screen
+ */
+#home button.start {
+  background-color: green;
+  border-color: #040;
+  min-width: 6em;
 }
 
-#menus button.selected {
-  border-bottom: 1px solid green;
+/*
+ * Activity in progress controls
+ */
+#progressContents button {
+  min-width: 7em;
 }
-
-#container {
-  background-color: black;
-  color: gray;
-  width: 220px;
+#home button.stop {
+  background-color: #F55;
+  border-color: #800;
 }
-
-#contents {
-  height: 300px;
-  width: 220px;
+#home button.pause {
+  background-color: grey;
+  border-color: #333;
 }
-
-#homeContents {
-  padding-top: 130px;
-  text-align: center;
-}
-
-#homeContents button {
-  color: green;
-  border: none;
-  background-color: black;
+#progressContents #currentDistance {
+  font-weight: bold;
+  font-size: 3em;
+  padding: 0.3em 0;
 }

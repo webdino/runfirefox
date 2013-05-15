@@ -1742,7 +1742,9 @@ RunFirefox.Setting = (function(){
 })();/* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 var HomeControls = function() {
+  var tracker = null;
   var self = this;
   var listener = function(e) {
     self.selectMenu(e);
@@ -1758,8 +1760,29 @@ HomeControls.prototype.stop = function() {
 }
 
 HomeControls.prototype.run = function() {
-  this.audioControls.run();
-//  this.audioControls.passKilo(512);
+  tracker = new Tracker();
+  var self = this;
+  tracker.start().then(
+    function() {
+      self.audioControls.run();
+      document.getElementById('progressContents').removeAttribute(
+        'aria-hidden');
+      document.getElementById('startContents').setAttribute('aria-hidden',
+        'true');
+    },
+    function(result) {
+      // TODO fail
+      console.log(result.error);
+    }
+  );
+  tracker.on("progress", function(position) {
+    var formattedDistance = (function(dist) {
+      return dist < 1000
+             ? dist.toFixed(0) + "m"
+             : (dist / 1000).toFixed(2) + "km";
+    })(position.distance);
+    document.getElementById('currentDistance').textContent = formattedDistance;
+  });
 }
 
 HomeControls.prototype.selectMenu = function(e) {

@@ -592,6 +592,11 @@ window.RSVP = requireModule('rsvp');
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+var $ = function(id) { return document.getElementById(id); };
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 function Tracker(geolocation, timeout) {
   // The geolocation service to use
   var geolocation = geolocation ? geolocation : navigator.geolocation;
@@ -1744,58 +1749,88 @@ RunFirefox.Setting = (function(){
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 var HomeControls = function() {
-  var tracker = null;
-  var self = this;
-  var listener = function(e) {
-    self.selectMenu(e);
+  var tracker       = null;
+  var audioControls = null;
+
+  $('home').addEventListener('click', function(e) { performAction(e); } );
+
+  this.start = function(parentAudioControls) {
+    audioControls = parentAudioControls;
   };
-  document.getElementById("home").addEventListener('click', listener);
-}
 
-HomeControls.prototype.start = function(audioControls) {
-  this.audioControls = audioControls;
-}
+  this.stop = function() {
+  };
 
-HomeControls.prototype.stop = function() {
-}
+  function performAction(e) {
+    var action = e.target,
+        actionType = action.getAttribute('data-action-type');
+    if (!actionType)
+      return;
+    console.log(window[actionType]);
 
-HomeControls.prototype.run = function() {
-  tracker = new Tracker();
-  var self = this;
-  tracker.start().then(
-    function() {
-      self.audioControls.run();
-      document.getElementById('progressContents').removeAttribute(
-        'aria-hidden');
-      document.getElementById('startContents').setAttribute('aria-hidden',
-        'true');
-    },
-    function(result) {
-      // TODO fail
-      console.log(result.error);
-    }
-  );
-  tracker.on("progress", function(position) {
-    var formattedDistance = (function(dist) {
-      return dist < 1000
-             ? dist.toFixed(0) + "m"
-             : (dist / 1000).toFixed(2) + "km";
-    })(position.distance);
-    document.getElementById('currentDistance').textContent = formattedDistance;
-  });
-}
-
-HomeControls.prototype.selectMenu = function(e) {
-  var action = e.target,
-    actionType = action.getAttribute('data-action-type');
-  if (actionType) {
     switch(actionType) {
       case 'run':
-        this.run();
+        run();
+        break;
+
+      case 'pause':
+        pause();
+        break;
+
+      case 'resume':
+        resume();
         break;
     }
   }
+
+  function run() {
+    tracker = new Tracker();
+    tracker.start().then(
+      function() {
+        if (audioControls)
+          audioControls.run();
+        $('progressContents').removeAttribute('aria-hidden');
+        $('startContents').setAttribute('aria-hidden', 'true');
+      },
+      function(result) {
+        // TODO fail
+        console.log(result.error);
+      }
+    );
+    tracker.on("progress", function(position) {
+      var formattedDistance = (function(dist) {
+        return dist < 1000
+               ? dist.toFixed(0) + "m"
+               : (dist / 1000).toFixed(2) + "km";
+      })(position.distance);
+      $('currentDistance').textContent = formattedDistance;
+    });
+  }
+
+  function pause() {
+    tracker.stop();
+    getPauseButton().textContent = "再開";
+    getPauseButton().setAttribute('data-action-type', 'resume');
+  }
+
+  function resume() {
+    tracker.start().then(
+      function() {
+        getPauseButton().textContent = "一時停止";
+        getPauseButton().setAttribute('data-action-type', 'pause');
+      }
+    );
+  }
+
+  function getPauseButton() {
+    if (!getPauseButton.result) {
+      getPauseButton.result =
+        document.querySelector("#home button[data-action-type=pause]");
+    }
+    return getPauseButton.result;
+  }
 }
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
